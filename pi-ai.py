@@ -33,6 +33,8 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 
+import numpy as np
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -51,7 +53,7 @@ from utils.torch_utils import select_device, time_sync
 def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         source=ROOT / 'data/images',  # file/dir/URL/glob, 0 for webcam
         data=ROOT / 'data/coco128.yaml',  # dataset.yaml path
-        imgsz=(640, 640),  # inference size (height, width)
+        imgsz=(320, 240),  # inference size (height, width)
         conf_thres=0.25,  # confidence threshold
         iou_thres=0.45,  # NMS IOU threshold
         max_det=1000,  # maximum detections per image
@@ -97,10 +99,6 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     half &= (pt or jit or onnx or engine) and device.type != 'cpu'  # FP16 supported on limited backends with CUDA
     if pt or jit:
         model.model.half() if half else model.model.float()
-    elif engine and model.trt_fp16_input != half:
-        LOGGER.info('model ' + (
-            'requires' if model.trt_fp16_input else 'incompatible with') + ' --half. Adjusting automatically.')
-        half = model.trt_fp16_input
 
     # Dataloader
     if webcam:
@@ -184,6 +182,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
+                for *xyxy, conf, cls in reversed(det):
+                    funny_numbers = (xyxy2xywh(torch.tensor(xyxy).view(1, 4))).view(-1).tolist()
+                    big_funny = max(funny_numbers[2],funny_numbers[3])
+                    dist = ((np.log((2.5*big_funny-56))) - 6.2)/(-0.039)
+                    print(big_funny, dist, label)
 
             # Save results (image with detections)
             if save_img:
@@ -222,7 +225,7 @@ def parse_opt():
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path(s)')
     parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--data', type=str, default=ROOT / 'data/coco128.yaml', help='(optional) dataset.yaml path')
-    parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
+    parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[320], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=1000, help='maximum detections per image')
